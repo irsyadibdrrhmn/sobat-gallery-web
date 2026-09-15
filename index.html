@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sobat Gallery - Digital Album</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+      }
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-[#04181B] text-[#E2E8F0] min-h-screen flex flex-col antialiased selection:bg-[#38BDF8] selection:text-black"
+  >
+    <header
+      class="w-full px-6 py-4 flex items-center justify-between bg-[#08242A]/80 backdrop-blur-md border-b border-[#1C4B52] sticky top-0 z-40"
+    >
+      <div class="flex items-center space-x-3">
+        <button
+          id="btn-back"
+          onclick="showEventView()"
+          class="hidden hover:bg-[#1C4B52] transition p-2 rounded-xl text-[#38BDF8]"
+          title="Kembali ke Galeri Acara"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
+        <div>
+          <span
+            class="text-[10px] tracking-widest font-semibold uppercase text-[#38BDF8] block"
+            >PHOTOBOOTH GALLERY</span
+          >
+          <h1
+            id="header-title"
+            class="text-lg md:text-xl font-bold text-white tracking-wide"
+          >
+            Sobat Gallery
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 text-neutral-300">
+        <button
+          id="btn-download-all"
+          onclick="downloadCurrentSessionAll()"
+          title="Download Semua Foto"
+          class="hidden flex items-center space-x-1.5 bg-[#1C4B52] hover:bg-[#28636C] text-[#38BDF8] px-3.5 py-1.5 rounded-full text-xs font-medium transition active:scale-95"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          <span class="hidden sm:inline">Unduh Semua</span>
+        </button>
+
+        <button
+          onclick="shareLink()"
+          title="Bagikan Tautan"
+          class="p-2 rounded-xl bg-[#08242A] border border-[#1C4B52] hover:border-[#38BDF8] text-[#38BDF8] transition active:scale-95"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+            />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="event-view" class="flex-1 max-w-5xl mx-auto w-full px-6 py-8">
+      <div class="mb-6">
+        <h2 class="text-xl font-bold text-white">Semua Sesi Foto</h2>
+        <p class="text-xs text-neutral-400">
+          Pilih sesi untuk melihat dan mengunduh foto Anda
+        </p>
+      </div>
+      <div
+        id="sessions-grid"
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 justify-center"
+      ></div>
+    </main>
+
+    <main
+      id="session-slider-view"
+      class="hidden flex-1 flex flex-col items-center justify-between px-4 pb-8 max-w-4xl mx-auto w-full"
+    >
+      <div
+        class="relative w-full flex-1 flex items-center justify-center min-h-[50vh] max-h-[68vh] my-auto py-2"
+      >
+        <button
+          onclick="prevSlide()"
+          class="absolute left-2 md:-left-6 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#08242A]/80 border border-[#1C4B52] text-white hover:border-[#38BDF8] hover:text-[#38BDF8] transition z-20 shadow-lg active:scale-90"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.2"
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
+
+        <div
+          class="relative max-h-full max-w-full flex items-center justify-center p-2 rounded-2xl bg-[#08242A]/50 border border-[#1C4B52]/60 shadow-2xl"
+        >
+          <img
+            id="main-slide-img"
+            src=""
+            alt="Foto Sesi"
+            class="max-h-[58vh] max-w-full object-contain rounded-xl transition-all duration-300"
+          />
+
+          <span
+            id="slide-counter"
+            class="absolute top-4 right-4 bg-black/75 backdrop-blur-sm border border-[#1C4B52] text-[#38BDF8] text-xs px-3 py-1 rounded-full font-semibold"
+          >
+            1/4
+          </span>
+        </div>
+
+        <button
+          onclick="nextSlide()"
+          class="absolute right-2 md:-right-6 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#08242A]/80 border border-[#1C4B52] text-white hover:border-[#38BDF8] hover:text-[#38BDF8] transition z-20 shadow-lg active:scale-90"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.2"
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div class="w-full flex flex-col items-center mt-2">
+        <div
+          id="thumbnails-container"
+          class="flex items-center space-x-3 overflow-x-auto max-w-full py-2 px-4 hide-scrollbar"
+        ></div>
+
+        <button
+          onclick="downloadCurrentActivePhoto()"
+          class="mt-4 flex items-center space-x-2 bg-[#A3E635] hover:bg-[#86EFAC] text-neutral-950 text-xs font-bold px-7 py-3 rounded-full shadow-lg shadow-[#A3E635]/10 active:scale-95 transition tracking-wider uppercase"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          <span>Simpan Foto Ini</span>
+        </button>
+      </div>
+    </main>
+
+    <script>
+      const eventDatabase = {
+        eventName: "Wedding Test Event",
+        sessions: [
+          {
+            id: "SG-20260915103001",
+            coverImage:
+              "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&auto=format&fit=crop&q=80",
+            items: [
+              {
+                type: "strip",
+                url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=1200&auto=format&fit=crop&q=80",
+                name: "PhotoStrip.jpg",
+              },
+              {
+                type: "gif",
+                url: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=1200&auto=format&fit=crop&q=80",
+                name: "Animation.gif",
+              },
+              {
+                type: "raw",
+                url: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1200&auto=format&fit=crop&q=80",
+                name: "Pose_1.jpg",
+              },
+              {
+                type: "raw",
+                url: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=1200&auto=format&fit=crop&q=80",
+                name: "Pose_2.jpg",
+              },
+            ],
+          },
+        ],
+      };
+
+      let activeSession = null;
+      let activeSlideIndex = 0;
+      let isDirectSessionAccess = false;
+
+      window.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("header-title").innerText =
+          eventDatabase.eventName;
+
+        const params = new URLSearchParams(window.location.search);
+        const sessionParam = params.get("session") || params.get("s");
+
+        if (sessionParam) {
+          const found = eventDatabase.sessions.find(
+            (s) => s.id.toLowerCase() === sessionParam.toLowerCase(),
+          );
+          if (found) {
+            isDirectSessionAccess = true; // Kunci agar tamu tidak bisa melihat sesi lain
+            openSession(found);
+            return;
+          }
+        }
+
+        renderEventSessions();
+      });
+
+      function renderEventSessions() {
+        const grid = document.getElementById("sessions-grid");
+        grid.innerHTML = "";
+
+        eventDatabase.sessions.forEach((session) => {
+          const card = document.createElement("div");
+          card.className =
+            "relative group cursor-pointer aspect-square rounded-2xl overflow-hidden border border-[#1C4B52] bg-[#08242A] hover:border-[#38BDF8] transition-all duration-300 transform hover:-translate-y-1 shadow-md";
+          card.onclick = () => openSession(session);
+
+          card.innerHTML = `
+            <img src="${session.coverImage}" alt="${session.id}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3">
+              <span class="text-xs font-medium text-white tracking-wide">${session.id}</span>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      }
+
+      function openSession(session) {
+        activeSession = session;
+        activeSlideIndex = 0;
+
+        document.getElementById("event-view").classList.add("hidden");
+        document
+          .getElementById("session-slider-view")
+          .classList.remove("hidden");
+        document.getElementById("btn-download-all").classList.remove("hidden");
+
+        // Jika dibuka langsung lewat scan QR sesi, sembunyikan tombol kembali demi privasi
+        const backBtn = document.getElementById("btn-back");
+        if (isDirectSessionAccess) {
+          backBtn.classList.add("hidden");
+        } else {
+          backBtn.classList.remove("hidden");
+        }
+
+        renderThumbnails();
+        updateSlideDisplay();
+      }
+
+      function showEventView() {
+        if (isDirectSessionAccess) return;
+        document.getElementById("session-slider-view").classList.add("hidden");
+        document.getElementById("event-view").classList.remove("hidden");
+        document.getElementById("btn-back").classList.add("hidden");
+        document.getElementById("btn-download-all").classList.add("hidden");
+        window.history.pushState({}, "", window.location.pathname);
+      }
+
+      function renderThumbnails() {
+        const container = document.getElementById("thumbnails-container");
+        container.innerHTML = "";
+
+        activeSession.items.forEach((item, idx) => {
+          const thumb = document.createElement("img");
+          thumb.src = item.url;
+          thumb.className = `w-14 h-14 md:w-16 md:h-16 object-cover rounded-xl cursor-pointer border-2 transition-all duration-200 ${
+            idx === activeSlideIndex
+              ? "border-[#38BDF8] scale-105 shadow-md shadow-[#38BDF8]/20"
+              : "border-transparent opacity-50 hover:opacity-90"
+          }`;
+          thumb.onclick = () => {
+            activeSlideIndex = idx;
+            updateSlideDisplay();
+          };
+          container.appendChild(thumb);
+        });
+      }
+
+      function updateSlideDisplay() {
+        const currentItem = activeSession.items[activeSlideIndex];
+        const mainImg = document.getElementById("main-slide-img");
+
+        mainImg.src = currentItem.url;
+        document.getElementById("slide-counter").innerText =
+          `${activeSlideIndex + 1}/${activeSession.items.length}`;
+
+        const thumbs = document.getElementById("thumbnails-container").children;
+        for (let i = 0; i < thumbs.length; i++) {
+          if (i === activeSlideIndex) {
+            thumbs[i].className =
+              "w-14 h-14 md:w-16 md:h-16 object-cover rounded-xl cursor-pointer border-2 border-[#38BDF8] scale-105 shadow-md shadow-[#38BDF8]/20 transition-all";
+          } else {
+            thumbs[i].className =
+              "w-14 h-14 md:w-16 md:h-16 object-cover rounded-xl cursor-pointer border-2 border-transparent opacity-50 hover:opacity-90 transition-all";
+          }
+        }
+      }
+
+      function nextSlide() {
+        if (!activeSession) return;
+        activeSlideIndex = (activeSlideIndex + 1) % activeSession.items.length;
+        updateSlideDisplay();
+      }
+
+      function prevSlide() {
+        if (!activeSession) return;
+        activeSlideIndex =
+          (activeSlideIndex - 1 + activeSession.items.length) %
+          activeSession.items.length;
+        updateSlideDisplay();
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (
+          document
+            .getElementById("session-slider-view")
+            .classList.contains("hidden")
+        )
+          return;
+        if (e.key === "ArrowRight") nextSlide();
+        if (e.key === "ArrowLeft") prevSlide();
+      });
+
+      async function downloadFile(url, filename) {
+        try {
+          const res = await fetch(url);
+          const blob = await res.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(blobUrl);
+        } catch {
+          window.open(url, "_blank");
+        }
+      }
+
+      function downloadCurrentActivePhoto() {
+        const item = activeSession.items[activeSlideIndex];
+        downloadFile(item.url, `${activeSession.id}_${item.name}`);
+      }
+
+      async function downloadCurrentSessionAll() {
+        for (let i = 0; i < activeSession.items.length; i++) {
+          const item = activeSession.items[i];
+          await downloadFile(item.url, `${activeSession.id}_${item.name}`);
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+
+      function shareLink() {
+        if (navigator.share) {
+          navigator.share({ title: document.title, url: window.location.href });
+        } else {
+          navigator.clipboard.writeText(window.location.href);
+          alert("Tautan sesi tersalin!");
+        }
+      }
+    </script>
+  </body>
+</html>
