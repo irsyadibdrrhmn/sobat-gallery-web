@@ -463,22 +463,29 @@
         if (e.key === "ArrowLeft") prevSlide();
       });
 
-      async function downloadFile(url, filename) {
-        try {
-          const res = await fetch(url);
-          const blob = await res.blob();
-          const blobUrl = window.URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = blobUrl;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(blobUrl);
-        } catch {
-          window.open(url, "_blank");
-        }
-      }
+      function downloadFile(url, filename) {
+  // 1. Ekstrak Google Drive File ID dari URL gambar
+  let fileId = "";
+  const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/) || url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) {
+    fileId = idMatch[1];
+  }
+
+  // 2. Tentukan tautan unduh langsung resmi dari Google Drive
+  let finalDownloadUrl = url;
+  if (fileId) {
+    // Endpoint uc?export=download memaksa browser langsung menyimpan file
+    finalDownloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+  }
+
+  // 3. Trigger unduh menggunakan elemen <a> tersembunyi
+  const a = document.createElement("a");
+  a.href = finalDownloadUrl;
+  a.setAttribute("download", filename || "photo.jpg");
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 
       function downloadCurrentActivePhoto() {
         const item = activeSession.items[activeSlideIndex];
