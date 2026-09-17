@@ -216,30 +216,19 @@
     </main>
 
     <script>
-      // 1. Masukkan API Key Google Drive Anda di sini
       const GDRIVE_API_KEY = "AIzaSyBiplyOJDEZxGNoUdbFBB5CU7fFY_M2r1g";
 
       let activeSession = null;
       let activeSlideIndex = 0;
       let isDirectSessionAccess = false;
 
-      window.addEventListener("DOMContentLoaded", async () => {
-        const params = new URLSearchParams(window.location.search);
-        const sessionParam = params.get("session") || params.get("s");
+      // Helper untuk membersihkan escape character \u0026 menjadi simbol & asli
+      function cleanUrl(url) {
+        if (!url) return "";
+        return url.replace(/\\u0026/g, "&");
+      }
 
-        if (sessionParam) {
-          isDirectSessionAccess = true;
-          await loadSessionFromDrive(sessionParam);
-        } else {
-          document.getElementById("header-title").innerText = "Sobat Gallery";
-          document.getElementById("sessions-grid").innerHTML = `
-            <div class="col-span-full py-16 text-center text-neutral-400">
-              <p class="text-sm">Silakan scan QR Code sesi foto Anda pada layar Kiosk.</p>
-            </div>
-          `;
-        }
-      });
-
+      // Cukup gunakan SATU event listener DOMContentLoaded
       window.addEventListener("DOMContentLoaded", async () => {
         const params = new URLSearchParams(window.location.search);
         const sessionParam = params.get("session") || params.get("s");
@@ -272,7 +261,7 @@
         try {
           let manifest = null;
 
-          // Jalur Utama: Direct manifest ID dari URL (bebas error 403 Google Search)
+          // Jalur Utama: Direct manifest ID dari URL
           if (manifestId) {
             try {
               const res = await fetch(
@@ -337,19 +326,19 @@
             return;
           }
 
-          // Susun daftar slide galeri
+          // Susun daftar slide galeri dengan pembersihan URL
           const items = [];
           if (manifest.strip) {
             items.push({
               type: "strip",
-              url: manifest.strip,
+              url: cleanUrl(manifest.strip),
               name: "PhotoStrip.jpg",
             });
           }
           if (manifest.gif) {
             items.push({
               type: "gif",
-              url: manifest.gif,
+              url: cleanUrl(manifest.gif),
               name: "Animation.gif",
             });
           }
@@ -357,7 +346,7 @@
             manifest.rawPhotos.forEach((photoUrl, idx) => {
               items.push({
                 type: "raw",
-                url: photoUrl,
+                url: cleanUrl(photoUrl),
                 name: `Pose_${idx + 1}.jpg`,
               });
             });
