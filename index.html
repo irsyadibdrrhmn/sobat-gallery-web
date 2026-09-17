@@ -261,29 +261,20 @@
         try {
           let manifest = null;
 
-          // Jalur Utama: Direct manifest ID dari URL
+          // Jalur Utama: Ambil via Vercel Serverless Proxy (Bebas CORS)
           if (manifestId) {
             try {
-              const res = await fetch(
-                `https://www.googleapis.com/drive/v3/files/${manifestId}?alt=media&key=${GDRIVE_API_KEY}`,
-              );
+              const res = await fetch(`/api/manifest?id=${manifestId}`);
               if (res.ok) {
                 manifest = await res.json();
+              } else {
+                console.error(
+                  "Gagal membaca manifest via proxy:",
+                  await res.text(),
+                );
               }
             } catch (e) {
-              console.warn(
-                "Direct fetch via API Key gagal, mencoba download link biasa...",
-                e,
-              );
-            }
-
-            if (!manifest) {
-              const directRes = await fetch(
-                `https://drive.google.com/uc?export=download&id=${manifestId}`,
-              );
-              if (directRes.ok) {
-                manifest = await directRes.json();
-              }
+              console.error("Proxy fetch error:", e);
             }
           }
 
