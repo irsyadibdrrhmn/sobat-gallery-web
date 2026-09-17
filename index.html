@@ -244,7 +244,6 @@
         document.getElementById("header-title").innerText =
           `Sesi: ${sessionId}`;
 
-        // Tampilkan placeholder loading pada grid
         const grid = document.getElementById("sessions-grid");
         grid.innerHTML = `
           <div class="col-span-full py-16 text-center text-[#38BDF8] animate-pulse">
@@ -253,76 +252,105 @@
         `;
 
         try {
-          // Cari folder sesi berdasarkan ID sesi pada Drive
+          // 1. Cari folder sesi secara global (mendukung My Drive & Shared Drives)
           const folderQuery = encodeURIComponent(
             `mimeType = 'application/vnd.google-apps.folder' and name = '${sessionId}' and trashed = false`,
           );
           const folderRes = await fetch(
-            `https://www.googleapis.com/drive/v3/files?q=${folderQuery}&fields=files(id)&key=${GDRIVE_API_KEY}`,
+            `https://www.googleapis.com/drive/v3/files?q=${folderQuery}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name)&key=${GDRIVE_API_KEY}`,
           );
           const folderData = await folderRes.json();
 
-          if (!folderData.files || folderData.files.length === 0) {
+          if (folderData.error) {
+            console.error("Google Drive API Error:", folderData.error);
             showEmptyState(
-              "Sesi foto sedang diunggah. Silakan refresh halaman ini dalam beberapa detik.",
+              `Gagal mengakses Drive: ${folderData.error.message}`,
+            );
+            return;
+          }
+
+          if (!folderData.files || folderData.files.length === 0) {
+            // Fallback: Cari langsung file manifest.json dengan prefix nama sesi jika folder belum terindeks
+            const directManifestQuery = encodeURIComponent(
+              `name = 'manifest.json' and trashed = false`,
+            );
+            const directRes = await fetch(
+              `https://www.googleapis.com/drive/v3/files?q=${directManifestQuery}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,parents)&key=${GDRIVE_API_KEY}`,
+            );
+            const directData = await directRes.json();
+
+            console.log("Fallback search manifest:", directData);
+            showEmptyState(
+              "Sesi foto sedang diproses. Silakan klik Muat Ulang beberapa saat lagi.",
             );
             return;
           }
 
           const folderId = folderData.files[0].id;
 
-          // Cari file manifest.json di dalam folder sesi tersebut
-          const manifestQuery = encodeURIComponent(
-            `name = 'manifest.json' and '${folderId}' in parents and trashed = false`,
+          // 2. Ambil semua file di dalam folder sesi tersebut
+          const filesQuery = encodeURIComponent(
+            `'${folderId}' in parents and trashed = false`,
           );
-          const manifestRes = await fetch(
-            `https://www.googleapis.com/drive/v3/files?q=${manifestQuery}&fields=files(id)&key=${GDRIVE_API_KEY}`,
+          const filesRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q=${filesQuery}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id,name,mimeType)&key=${GDRIVE_API_KEY}`,
           );
-          const manifestData = await manifestRes.json();
+          const filesData = await filesRes.json();
 
-          if (!manifestData.files || manifestData.files.length === 0) {
-            showEmptyState(
-              "Menyiapkan berkas foto... Silakan refresh kembali.",
-            );
+          if (!filesData.files || filesData.files.length === 0) {
+            showEmptyState("Berkas foto sedang disinkronkan ke cloud...");
             return;
           }
 
-          // Unduh konten manifest.json
-          const manifestFileId = manifestData.files[0].id;
-          const contentRes = await fetch(
-            `https://www.googleapis.com/drive/v3/files/${manifestFileId}?alt=media&key=${GDRIVE_API_KEY}`,
+          // Cek apakah ada manifest.json
+          const manifestMeta = filesData.files.find(
+            (f) => f.name === "manifest.json",
           );
-          const manifest = await contentRes.json();
+          let items = [];
 
-          // Petakan data manifest ke items galeri slider
-          const items = [];
+          if (manifestMeta) {
+            const contentRes = await fetch(
+              `https://www.googleapis.com/drive/v3/files/${manifestMeta.id}?alt=media&key=${GDRIVE_API_KEY}`,
+            );
+            const manifest = await contentRes.json();
 
-          if (manifest.strip) {
-            items.push({
-              type: "strip",
-              url: manifest.strip,
-              name: "PhotoStrip.jpg",
-            });
-          }
-          if (manifest.gif) {
-            items.push({
-              type: "gif",
-              url: manifest.gif,
-              name: "Animation.gif",
-            });
-          }
-          if (Array.isArray(manifest.rawPhotos)) {
-            manifest.rawPhotos.forEach((photoUrl, idx) => {
+            if (manifest.strip)
               items.push({
-                type: "raw",
-                url: photoUrl,
-                name: `Pose_${idx + 1}.jpg`,
+                type: "strip",
+                url: manifest.strip,
+                name: "PhotoStrip.jpg",
               });
+            if (manifest.gif)
+              items.push({
+                type: "gif",
+                url: manifest.gif,
+                name: "Animation.gif",
+              });
+            if (Array.isArray(manifest.rawPhotos)) {
+              manifest.rawPhotos.forEach((photoUrl, idx) => {
+                items.push({
+                  type: "raw",
+                  url: photoUrl,
+                  name: `Pose_${idx + 1}.jpg`,
+                });
+              });
+            }
+          } else {
+            // Fallback jika manifest belum selesai terunggah: baca langsung file-file gambar di folder
+            filesData.files.forEach((file) => {
+              if (file.mimeType.startsWith("image/")) {
+                const directUrl = `https://lh3.googleusercontent.com/d/${file.id}`;
+                items.push({
+                  type: file.name.includes(".gif") ? "gif" : "image",
+                  url: directUrl,
+                  name: file.name,
+                });
+              }
             });
           }
 
           if (items.length === 0) {
-            showEmptyState("Tidak ada berkas foto ditemukan pada sesi ini.");
+            showEmptyState("Belum ada foto yang tersedia.");
             return;
           }
 
@@ -331,10 +359,8 @@
             items: items,
           });
         } catch (err) {
-          console.error("Gagal memuat sesi:", err);
-          showEmptyState(
-            "Gagal menghubungi server Google Drive. Periksa koneksi atau API Key.",
-          );
+          console.error("Fetch Exception:", err);
+          showEmptyState("Terjadi kendala jaringan saat memuat album.");
         }
       }
 
