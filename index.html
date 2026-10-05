@@ -317,29 +317,63 @@
             return;
           }
 
-          // Susun daftar slide galeri dengan pembersihan URL
+          // Susun daftar slide galeri dengan pembersihan URL (dukungan multi-strip dan multi-gif)
           const items = [];
-          if (manifest.strip) {
+
+          // 1. Dukungan multi-strip & fallback single strip
+          if (Array.isArray(manifest.strips) && manifest.strips.length > 0) {
+            manifest.strips.forEach((photoUrl, idx) => {
+              if (photoUrl) {
+                items.push({
+                  type: "strip",
+                  url: cleanUrl(photoUrl),
+                  name:
+                    manifest.strips.length > 1
+                      ? `PhotoStrip_${idx + 1}.jpg`
+                      : "PhotoStrip.jpg",
+                });
+              }
+            });
+          } else if (manifest.strip) {
             items.push({
               type: "strip",
               url: cleanUrl(manifest.strip),
               name: "PhotoStrip.jpg",
             });
           }
-          if (manifest.gif) {
+
+          // 2. Dukungan multi-gif & fallback single gif
+          if (Array.isArray(manifest.gifs) && manifest.gifs.length > 0) {
+            manifest.gifs.forEach((gifUrl, idx) => {
+              if (gifUrl) {
+                items.push({
+                  type: "gif",
+                  url: cleanUrl(gifUrl),
+                  name:
+                    manifest.gifs.length > 1
+                      ? `Animation_${idx + 1}.gif`
+                      : "Animation.gif",
+                });
+              }
+            });
+          } else if (manifest.gif) {
             items.push({
               type: "gif",
               url: cleanUrl(manifest.gif),
               name: "Animation.gif",
             });
           }
+
+          // 3. Foto-foto pose asli (raw photos)
           if (Array.isArray(manifest.rawPhotos)) {
             manifest.rawPhotos.forEach((photoUrl, idx) => {
-              items.push({
-                type: "raw",
-                url: cleanUrl(photoUrl),
-                name: `Pose_${idx + 1}.jpg`,
-              });
+              if (photoUrl) {
+                items.push({
+                  type: "raw",
+                  url: cleanUrl(photoUrl),
+                  name: `Pose_${idx + 1}.jpg`,
+                });
+              }
             });
           }
 
@@ -464,28 +498,30 @@
       });
 
       function downloadFile(url, filename) {
-  // 1. Ekstrak Google Drive File ID dari URL gambar
-  let fileId = "";
-  const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/) || url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-  if (idMatch && idMatch[1]) {
-    fileId = idMatch[1];
-  }
+        // 1. Ekstrak Google Drive File ID dari URL gambar
+        let fileId = "";
+        const idMatch =
+          url.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+          url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (idMatch && idMatch[1]) {
+          fileId = idMatch[1];
+        }
 
-  // 2. Tentukan tautan unduh langsung resmi dari Google Drive
-  let finalDownloadUrl = url;
-  if (fileId) {
-    // Endpoint uc?export=download memaksa browser langsung menyimpan file
-    finalDownloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-  }
+        // 2. Tentukan tautan unduh langsung resmi dari Google Drive
+        let finalDownloadUrl = url;
+        if (fileId) {
+          // Endpoint uc?export=download memaksa browser langsung menyimpan file
+          finalDownloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+        }
 
-  // 3. Trigger unduh menggunakan elemen <a> tersembunyi
-  const a = document.createElement("a");
-  a.href = finalDownloadUrl;
-  a.setAttribute("download", filename || "photo.jpg");
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
+        // 3. Trigger unduh menggunakan elemen <a> tersembunyi
+        const a = document.createElement("a");
+        a.href = finalDownloadUrl;
+        a.setAttribute("download", filename || "photo.jpg");
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
 
       function downloadCurrentActivePhoto() {
         const item = activeSession.items[activeSlideIndex];
