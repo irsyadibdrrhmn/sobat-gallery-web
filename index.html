@@ -229,17 +229,42 @@
         return url.replace(/\\u0026/g, "&");
       }
 
+      // Helper untuk mengekstrak nama Event bersih tanpa nomor urut sesi (contoh: "SHOP-1" -> "SHOP")
+      function resolveEventTitle(sessionId, manifest = null, eventParam = null) {
+        if (manifest && manifest.eventName && manifest.eventName.trim()) {
+          return manifest.eventName.trim();
+        }
+        if (eventParam && eventParam.trim()) {
+          return eventParam.trim();
+        }
+        const rawSession =
+          (manifest && manifest.sessionId) || sessionId || "";
+        if (rawSession) {
+          // Hapus akhiran nomor urut sesi seperti "-1", "-2", dst.
+          const stripped = rawSession.replace(/-\d+$/, "").trim();
+          if (stripped && !/^SG-\d+/i.test(rawSession)) {
+            return stripped;
+          }
+        }
+        if (manifest && manifest.eventSlug && manifest.eventSlug !== "default-event") {
+          return manifest.eventSlug.replace(/-/g, " ").toUpperCase();
+        }
+        return "Sobat Gallery";
+      }
+
       // Cukup gunakan SATU event listener DOMContentLoaded
       window.addEventListener("DOMContentLoaded", async () => {
         const params = new URLSearchParams(window.location.search);
         const sessionParam = params.get("session") || params.get("s");
         const manifestId = params.get("m"); // ID file manifest langsung dari QR
+        const eventParam = params.get("event") || params.get("e");
 
         if (manifestId || sessionParam) {
           isDirectSessionAccess = true;
-          await loadSessionFromDrive(sessionParam, manifestId);
+          await loadSessionFromDrive(sessionParam, manifestId, eventParam);
         } else {
-          document.getElementById("header-title").innerText = "Sobat Gallery";
+          document.getElementById("header-title").innerText =
+            resolveEventTitle(null, null, eventParam);
           document.getElementById("sessions-grid").innerHTML = `
             <div class="col-span-full py-16 text-center text-neutral-400">
               <p class="text-sm">Silakan scan QR Code sesi foto Anda pada layar Kiosk.</p>
@@ -248,9 +273,9 @@
         }
       });
 
-      async function loadSessionFromDrive(sessionId, manifestId = null) {
+      async function loadSessionFromDrive(sessionId, manifestId = null, eventParam = null) {
         document.getElementById("header-title").innerText =
-          `Sesi: ${sessionId || "Foto"}`;
+          resolveEventTitle(sessionId, null, eventParam);
 
         const grid = document.getElementById("sessions-grid");
         grid.innerHTML = `
@@ -318,6 +343,10 @@
             return;
           }
 
+          // Perbarui judul header agar menampilkan nama event saja (tanpa nomor sesi)
+          document.getElementById("header-title").innerText =
+            resolveEventTitle(sessionId, manifest, eventParam);
+
           // Susun daftar slide galeri dengan pembersihan URL (dukungan multi-strip dan multi-gif)
           const items = [];
 
@@ -328,10 +357,7 @@
                 items.push({
                   type: "strip",
                   url: cleanUrl(photoUrl),
-                  name:
-                    manifest.strips.length > 1
-                      ? `PhotoStrip_${idx + 1}.jpg`
-                      : "PhotoStrip.jpg",
+                  name: manifest.strips.length > 1 ? `PhotoStrip_${idx + 1}.jpg` : "PhotoStrip.jpg",
                 });
               }
             });
@@ -350,10 +376,7 @@
                 items.push({
                   type: "gif",
                   url: cleanUrl(gifUrl),
-                  name:
-                    manifest.gifs.length > 1
-                      ? `Animation_${idx + 1}.gif`
-                      : "Animation.gif",
+                  name: manifest.gifs.length > 1 ? `Animation_${idx + 1}.gif` : "Animation.gif",
                 });
               }
             });
