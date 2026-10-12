@@ -159,6 +159,14 @@
             alt="Foto Sesi"
             class="max-h-[58vh] max-w-full object-contain rounded-xl transition-all duration-300"
           />
+          <video
+            id="main-slide-video"
+            autoplay
+            loop
+            muted
+            playsinline
+            class="hidden max-h-[58vh] max-w-full object-contain rounded-xl transition-all duration-300"
+          ></video>
 
           <span
             id="slide-counter"
@@ -369,23 +377,53 @@
             });
           }
 
-          // 2. Dukungan multi-gif & fallback single gif
+          // 2. Dukungan multi-video MP4 / GIF & fallback single animasi
+          const fallbackThumb =
+            (Array.isArray(manifest.rawPhotos) && manifest.rawPhotos[0]
+              ? cleanUrl(manifest.rawPhotos[0])
+              : "") ||
+            (Array.isArray(manifest.strips) && manifest.strips[0]
+              ? cleanUrl(manifest.strips[0])
+              : "") ||
+            cleanUrl(manifest.strip || "");
+
+          function buildAnimItem(animUrl, idx, totalCount) {
+            const cleaned = cleanUrl(animUrl);
+            const idMatch =
+              cleaned.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+              cleaned.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            const fileId = idMatch && idMatch[1] ? idMatch[1] : "";
+            const isMp4 =
+              cleaned.toLowerCase().includes(".mp4") ||
+              cleaned.toLowerCase().includes("export=download");
+            const ext = isMp4 ? "mp4" : "gif";
+            const baseLabel = isMp4 ? "Video" : "Animation";
+            return {
+              type: isMp4 ? "video" : "gif",
+              url: cleaned,
+              videoUrl:
+                isMp4 && fileId
+                  ? `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${GDRIVE_API_KEY}`
+                  : cleaned,
+              thumbUrl: fileId
+                ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
+                : fallbackThumb || cleaned,
+              fallbackThumbUrl: fallbackThumb,
+              name:
+                totalCount > 1
+                  ? `${baseLabel}_${idx + 1}.${ext}`
+                  : `${baseLabel}.${ext}`,
+            };
+          }
+
           if (Array.isArray(manifest.gifs) && manifest.gifs.length > 0) {
             manifest.gifs.forEach((gifUrl, idx) => {
               if (gifUrl) {
-                items.push({
-                  type: "gif",
-                  url: cleanUrl(gifUrl),
-                  name: manifest.gifs.length > 1 ? `Animation_${idx + 1}.gif` : "Animation.gif",
-                });
+                items.push(buildAnimItem(gifUrl, idx, manifest.gifs.length));
               }
             });
           } else if (manifest.gif) {
-            items.push({
-              type: "gif",
-              url: cleanUrl(manifest.gif),
-              name: "Animation.gif",
-            });
+            items.push(buildAnimItem(manifest.gif, 0, 1));
           }
 
           // 3. Foto-foto pose asli (raw photos)
@@ -449,6 +487,10 @@
 
       function showEventView() {
         if (isDirectSessionAccess) return;
+        const mainVideo = document.getElementById("main-slide-video");
+        if (mainVideo) {
+          try { mainVideo.pause(); } catch (e) {}
+        }
         document.getElementById("session-slider-view").classList.add("hidden");
         document.getElementById("event-view").classList.remove("hidden");
         document.getElementById("btn-back").classList.add("hidden");
@@ -462,7 +504,14 @@
 
         activeSession.items.forEach((item, idx) => {
           const thumb = document.createElement("img");
-          thumb.src = item.url;
+          thumb.src = item.thumbUrl || item.url;
+          if (item.fallbackThumbUrl) {
+            thumb.onerror = () => {
+              if (thumb.src !== item.fallbackThumbUrl) {
+                thumb.src = item.fallbackThumbUrl;
+              }
+            };
+          }
           thumb.className = `w-14 h-14 md:w-16 md:h-16 object-cover rounded-xl cursor-pointer border-2 transition-all duration-200 ${
             idx === activeSlideIndex
               ? "border-[#38BDF8] scale-105 shadow-md shadow-[#38BDF8]/20"
@@ -476,11 +525,41 @@
         });
       }
 
-      function updateSlideDisplay() {
+      async function updateSlideDisplay() {
         const currentItem = activeSession.items[activeSlideIndex];
         const mainImg = document.getElementById("main-slide-img");
+        const mainVideo = document.getElementById("main-slide-video");
 
-        mainImg.src = currentItem.url;
+        if (currentItem.type === "video" && mainVideo) {
+          mainImg.classList.add("hidden");
+          mainVideo.classList.remove("hidden");
+          const vSrc = currentItem.blobUrl || currentItem.videoUrl || currentItem.url;
+          if (mainVideo.src !== vSrc) {
+            mainVideo.src = vSrc;
+            mainVideo.onerror = async () => {
+              if (!currentItem._triedBlob) {
+                currentItem._triedBlob = true;
+                const blob = await fetchFileBlob(currentItem.url);
+                if (blob) {
+                  currentItem.blobUrl = URL.createObjectURL(blob);
+                  if (activeSession.items[activeSlideIndex] === currentItem) {
+                    mainVideo.src = currentItem.blobUrl;
+                    mainVideo.play().catch(() => {});
+                  }
+                }
+              }
+            };
+          }
+          mainVideo.play().catch(() => {});
+        } else {
+          if (mainVideo) {
+            try { mainVideo.pause(); } catch (e) {}
+            mainVideo.classList.add("hidden");
+          }
+          mainImg.classList.remove("hidden");
+          mainImg.src = currentItem.url;
+        }
+
         document.getElementById("slide-counter").innerText =
           `${activeSlideIndex + 1}/${activeSession.items.length}`;
 
