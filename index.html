@@ -219,7 +219,7 @@
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
             />
           </svg>
-          <span>Simpan Foto Ini</span>
+          <span>SAVE THIS FILE</span>
         </button>
       </div>
     </main>
@@ -281,39 +281,22 @@
         }
       });
 
-      async function loadSessionFromDrive(sessionId, manifestId = null, eventParam = null) {
-        document.getElementById("header-title").innerText =
-          resolveEventTitle(sessionId, null, eventParam);
-
-        const grid = document.getElementById("sessions-grid");
-        grid.innerHTML = `
-          <div class="col-span-full py-16 text-center text-[#38BDF8] animate-pulse">
-            <p class="text-sm font-medium">Memuat galeri foto Anda...</p>
-          </div>
-        `;
-
-        try {
-          let manifest = null;
-
-          // Jalur Utama: Ambil via Vercel Serverless Proxy (Bebas CORS)
-          if (manifestId) {
-            try {
-              const res = await fetch(`/api/manifest?id=${manifestId}`);
-              if (res.ok) {
-                manifest = await res.json();
-              } else {
-                console.error(
-                  "Gagal membaca manifest via proxy:",
-                  await res.text(),
-                );
-              }
-            } catch (e) {
-              console.error("Proxy fetch error:", e);
+      async function fetchManifestData(sessionId, manifestId) {
+        // Jalur Utama: Ambil via Vercel Serverless Proxy (Bebas CORS)
+        if (manifestId) {
+          try {
+            const res = await fetch(`/api/manifest?id=${manifestId}`);
+            if (res.ok) {
+              return await res.json();
             }
+          } catch (e) {
+            console.error("Proxy fetch error:", e);
           }
+        }
 
-          // Jalur Cadangan: Pencarian folder jika manifestId tidak ada di URL
-          if (!manifest && sessionId) {
+        // Jalur Cadangan: Pencarian folder jika manifestId tidak ada di URL
+        if (sessionId) {
+          try {
             const folderQuery = encodeURIComponent(
               `mimeType = 'application/vnd.google-apps.folder' and name = '${sessionId}' and trashed = false`,
             );
@@ -339,8 +322,37 @@
                 const contentRes = await fetch(
                   `https://www.googleapis.com/drive/v3/files/${manifestMeta.id}?alt=media&key=${GDRIVE_API_KEY}`,
                 );
-                if (contentRes.ok) manifest = await contentRes.json();
+                if (contentRes.ok) return await contentRes.json();
               }
+            }
+          } catch (e) {
+            console.warn("Folder manifest lookup error:", e);
+          }
+        }
+
+        return null;
+      }
+
+      async function loadSessionFromDrive(sessionId, manifestId = null, eventParam = null) {
+        document.getElementById("header-title").innerText =
+          resolveEventTitle(sessionId, null, eventParam);
+
+        const grid = document.getElementById("sessions-grid");
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-[#38BDF8] animate-pulse">
+            <p class="text-sm font-medium">Memuat galeri foto Anda...</p>
+          </div>
+        `;
+
+        try {
+          let manifest = null;
+
+          // Auto-retry hingga 5 percobaan (interval 1.5 detik) jika sesi masih dalam tahap akhir unggahan
+          for (let attempt = 0; attempt < 5; attempt++) {
+            manifest = await fetchManifestData(sessionId, manifestId);
+            if (manifest) break;
+            if (attempt < 4) {
+              await new Promise((r) => setTimeout(r, 1500));
             }
           }
 
@@ -378,14 +390,11 @@
           }
 
           // 2. Dukungan multi-video MP4 / GIF & fallback single animasi
-          const fallbackThumb =
-            (Array.isArray(manifest.rawPhotos) && manifest.rawPhotos[0]
+          // JANGAN gunakan strip template sebagai fallback thumbnail untuk MP4 agar tidak pernah merender strip template di kotak kecil GIF!
+          const firstRawPhotoThumb =
+            Array.isArray(manifest.rawPhotos) && manifest.rawPhotos[0]
               ? cleanUrl(manifest.rawPhotos[0])
-              : "") ||
-            (Array.isArray(manifest.strips) && manifest.strips[0]
-              ? cleanUrl(manifest.strips[0])
-              : "") ||
-            cleanUrl(manifest.strip || "");
+              : "";
 
           function buildAnimItem(animUrl, idx, totalCount) {
             const cleaned = cleanUrl(animUrl);
@@ -400,6 +409,7 @@
             const baseLabel = isMp4 ? "Video" : "Animation";
             return {
               type: isMp4 ? "video" : "gif",
+              fileId: fileId,
               url: cleaned,
               videoUrl:
                 isMp4 && fileId
@@ -407,8 +417,8 @@
                   : cleaned,
               thumbUrl: fileId
                 ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
-                : fallbackThumb || cleaned,
-              fallbackThumbUrl: fallbackThumb,
+                : firstRawPhotoThumb || (!isMp4 ? cleaned : ""),
+              fallbackThumbUrl: firstRawPhotoThumb,
               name:
                 totalCount > 1
                   ? `${baseLabel}_${idx + 1}.${ext}`
@@ -464,6 +474,46 @@
         `;
       }
 
+      function ensureVideoBlobLoaded(item) {
+        if (!item) return Promise.resolve(null);
+        if (item.blobUrl) return Promise.resolve(item.blobUrl);
+        if (item._blobPromise) return item._blobPromise;
+
+        item._blobPromise = (async () => {
+          try {
+            const rawBlob = await fetchFileBlob(item.url);
+            if (rawBlob && rawBlob.size > 0) {
+              const typedBlob =
+                rawBlob.type && rawBlob.type.includes("video")
+                  ? rawBlob
+                  : new Blob([rawBlob], { type: "video/mp4" });
+              item._blob = typedBlob;
+              item.blobUrl = URL.createObjectURL(typedBlob);
+
+              // Jika video ini memiliki elemen thumbnail <video>, perbarui src-nya agar frame asli langsung muncul
+              if (item._thumbVideoEl && item._thumbVideoEl.src !== item.blobUrl) {
+                item._thumbVideoEl.src = item.blobUrl;
+              }
+              return item.blobUrl;
+            }
+          } catch (e) {
+            console.warn("Video preload failed:", e);
+          }
+          return null;
+        })();
+
+        return item._blobPromise;
+      }
+
+      function preloadSessionVideos(session) {
+        if (!session || !Array.isArray(session.items)) return;
+        session.items.forEach((item) => {
+          if (item.type === "video") {
+            ensureVideoBlobLoaded(item);
+          }
+        });
+      }
+
       function openSession(session) {
         activeSession = session;
         activeSlideIndex = 0;
@@ -483,6 +533,9 @@
 
         renderThumbnails();
         updateSlideDisplay();
+
+        // Preload seluruh MP4 di latar belakang begitu halaman dibuka agar saat diklik langsung bergerak instan!
+        preloadSessionVideos(session);
       }
 
       function showEventView() {
@@ -498,30 +551,77 @@
         window.history.pushState({}, "", window.location.pathname);
       }
 
+      function getThumbWrapperClass(isActive) {
+        return `relative w-14 h-14 md:w-16 md:h-16 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer border-2 bg-[#08242A] transition-all duration-200 ${
+          isActive
+            ? "border-[#38BDF8] scale-105 shadow-md shadow-[#38BDF8]/20"
+            : "border-transparent opacity-60 hover:opacity-95"
+        }`;
+      }
+
       function renderThumbnails() {
         const container = document.getElementById("thumbnails-container");
         container.innerHTML = "";
 
         activeSession.items.forEach((item, idx) => {
-          const thumb = document.createElement("img");
-          thumb.src = item.thumbUrl || item.url;
-          if (item.fallbackThumbUrl) {
-            thumb.onerror = () => {
-              if (thumb.src !== item.fallbackThumbUrl) {
-                thumb.src = item.fallbackThumbUrl;
-              }
-            };
-          }
-          thumb.className = `w-14 h-14 md:w-16 md:h-16 object-cover rounded-xl cursor-pointer border-2 transition-all duration-200 ${
-            idx === activeSlideIndex
-              ? "border-[#38BDF8] scale-105 shadow-md shadow-[#38BDF8]/20"
-              : "border-transparent opacity-50 hover:opacity-90"
-          }`;
-          thumb.onclick = () => {
+          const wrapper = document.createElement("div");
+          wrapper.className = getThumbWrapperClass(idx === activeSlideIndex);
+          wrapper.onclick = () => {
             activeSlideIndex = idx;
             updateSlideDisplay();
           };
-          container.appendChild(thumb);
+
+          if (item.type === "video") {
+            const vidThumb = document.createElement("video");
+            vidThumb.muted = true;
+            vidThumb.playsInline = true;
+            vidThumb.setAttribute("muted", "");
+            vidThumb.setAttribute("playsinline", "");
+            vidThumb.preload = "metadata";
+            if (item.fallbackThumbUrl) {
+              vidThumb.poster = item.fallbackThumbUrl;
+            }
+            vidThumb.src = item.blobUrl || item.videoUrl || item.url;
+            vidThumb.className = "w-full h-full object-cover pointer-events-none";
+            vidThumb.onloadeddata = () => {
+              try {
+                if (vidThumb.currentTime === 0) {
+                  vidThumb.currentTime = 0.05;
+                }
+              } catch (e) {}
+            };
+            item._thumbVideoEl = vidThumb;
+            wrapper.appendChild(vidThumb);
+          } else {
+            const thumb = document.createElement("img");
+            thumb.src = item.thumbUrl || item.url;
+            if (item.fallbackThumbUrl) {
+              thumb.onerror = () => {
+                if (thumb.src !== item.fallbackThumbUrl) {
+                  thumb.src = item.fallbackThumbUrl;
+                }
+              };
+            }
+            thumb.className = "w-full h-full object-cover pointer-events-none";
+            wrapper.appendChild(thumb);
+          }
+
+          // Tambahkan penanda ikon Play (▶) pada thumbnail video MP4 / GIF agar pelanggan dapat membedakannya dari foto biasa
+          if (item.type === "video" || item.type === "gif") {
+            const badge = document.createElement("div");
+            badge.className =
+              "absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none";
+            badge.innerHTML = `
+              <div class="w-6 h-6 rounded-full bg-black/70 border border-[#38BDF8]/90 flex items-center justify-center shadow-md">
+                <svg class="w-3.5 h-3.5 text-[#38BDF8] ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            `;
+            wrapper.appendChild(badge);
+          }
+
+          container.appendChild(wrapper);
         });
       }
 
@@ -530,27 +630,48 @@
         const mainImg = document.getElementById("main-slide-img");
         const mainVideo = document.getElementById("main-slide-video");
 
+        document.getElementById("slide-counter").innerText =
+          `${activeSlideIndex + 1}/${activeSession.items.length}`;
+
+        const thumbs = document.getElementById("thumbnails-container").children;
+        for (let i = 0; i < thumbs.length; i++) {
+          thumbs[i].className = getThumbWrapperClass(i === activeSlideIndex);
+        }
+
         if (currentItem.type === "video" && mainVideo) {
           mainImg.classList.add("hidden");
           mainVideo.classList.remove("hidden");
-          const vSrc = currentItem.blobUrl || currentItem.videoUrl || currentItem.url;
-          if (mainVideo.src !== vSrc) {
-            mainVideo.src = vSrc;
-            mainVideo.onerror = async () => {
-              if (!currentItem._triedBlob) {
-                currentItem._triedBlob = true;
-                const blob = await fetchFileBlob(currentItem.url);
-                if (blob) {
-                  currentItem.blobUrl = URL.createObjectURL(blob);
-                  if (activeSession.items[activeSlideIndex] === currentItem) {
-                    mainVideo.src = currentItem.blobUrl;
-                    mainVideo.play().catch(() => {});
-                  }
-                }
-              }
-            };
+          if (currentItem.fallbackThumbUrl) {
+            mainVideo.poster = currentItem.fallbackThumbUrl;
+          } else {
+            mainVideo.removeAttribute("poster");
           }
-          mainVideo.play().catch(() => {});
+
+          if (currentItem.blobUrl) {
+            if (mainVideo.src !== currentItem.blobUrl) {
+              mainVideo.src = currentItem.blobUrl;
+            }
+            mainVideo.play().catch(() => {});
+          } else {
+            // Segera gunakan stream sembari menunggu preload blob selesai agar tidak kosong/lambat
+            const initialSrc = currentItem.videoUrl || currentItem.url;
+            if (mainVideo.src !== initialSrc) {
+              mainVideo.src = initialSrc;
+            }
+            mainVideo.play().catch(() => {});
+
+            const readyBlobUrl = await ensureVideoBlobLoaded(currentItem);
+            if (
+              readyBlobUrl &&
+              activeSession &&
+              activeSession.items[activeSlideIndex] === currentItem
+            ) {
+              if (mainVideo.paused || mainVideo.readyState < 2 || mainVideo.src !== readyBlobUrl) {
+                mainVideo.src = readyBlobUrl;
+                mainVideo.play().catch(() => {});
+              }
+            }
+          }
         } else {
           if (mainVideo) {
             try { mainVideo.pause(); } catch (e) {}
@@ -558,20 +679,6 @@
           }
           mainImg.classList.remove("hidden");
           mainImg.src = currentItem.url;
-        }
-
-        document.getElementById("slide-counter").innerText =
-          `${activeSlideIndex + 1}/${activeSession.items.length}`;
-
-        const thumbs = document.getElementById("thumbnails-container").children;
-        for (let i = 0; i < thumbs.length; i++) {
-          if (i === activeSlideIndex) {
-            thumbs[i].className =
-              "w-14 h-14 md:w-16 md:h-16 object-cover rounded-xl cursor-pointer border-2 border-[#38BDF8] scale-105 shadow-md shadow-[#38BDF8]/20 transition-all";
-          } else {
-            thumbs[i].className =
-              "w-14 h-14 md:w-16 md:h-16 object-cover rounded-xl cursor-pointer border-2 border-transparent opacity-50 hover:opacity-90 transition-all";
-          }
         }
       }
 
@@ -650,7 +757,7 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
       }
 
       function downloadDirectFallback(url, filename) {
@@ -681,9 +788,24 @@
         const filename = `${activeSession.id}_${item.name}`;
 
         try {
+          if (item._blob) {
+            downloadBlob(item._blob, filename);
+            return;
+          }
           const blob = await fetchFileBlob(item.url);
           if (blob) {
-            downloadBlob(blob, filename);
+            const mimeType =
+              item.type === "video"
+                ? "video/mp4"
+                : item.type === "gif"
+                  ? "image/gif"
+                  : "image/jpeg";
+            const typedBlob =
+              blob.type && blob.type !== "application/octet-stream"
+                ? blob
+                : new Blob([blob], { type: mimeType });
+            item._blob = typedBlob;
+            downloadBlob(typedBlob, filename);
             return;
           }
         } catch (e) {
@@ -711,66 +833,64 @@
         try {
           const total = activeSession.items.length;
 
-          // Jalur Utama: Bundle semua file ke dalam file ZIP tunggal (Anti-Blockir Browser & Mobile Friendly)
-          if (typeof JSZip !== "undefined") {
-            const zip = new JSZip();
-
-            for (let i = 0; i < total; i++) {
-              const item = activeSession.items[i];
-              btn.innerHTML = `
-                <svg class="w-4 h-4 animate-spin text-[#38BDF8]" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                </svg>
-                <span>Unduh (${i + 1}/${total})...</span>
-              `;
-
-              const blob = await fetchFileBlob(item.url);
-              if (blob) {
-                zip.file(item.name, blob);
-              }
-            }
+          // Unduh setiap file secara individual (Tanpa ZIP) agar foto (.jpg) & video (.mp4) langsung tersimpan ke galeri perangkat!
+          for (let i = 0; i < total; i++) {
+            const item = activeSession.items[i];
+            const filename = `${activeSession.id}_${item.name}`;
 
             btn.innerHTML = `
               <svg class="w-4 h-4 animate-spin text-[#38BDF8]" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
               </svg>
-              <span>Membuat ZIP...</span>
+              <span>Menyimpan (${i + 1}/${total})...</span>
             `;
 
-            const zipBlob = await zip.generateAsync({ type: "blob" });
-            downloadBlob(zipBlob, `${activeSession.id}_Album.zip`);
-
-            btn.innerHTML = `
-              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-              </svg>
-              <span>Selesai!</span>
-            `;
-
-            setTimeout(() => {
-              btn.innerHTML = originalHtml;
-              isDownloadingAll = false;
-            }, 3000);
-            return;
-          }
-
-          // Fallback sequential blob downloads
-          for (let i = 0; i < total; i++) {
-            const item = activeSession.items[i];
-            const blob = await fetchFileBlob(item.url);
-            if (blob) {
-              downloadBlob(blob, `${activeSession.id}_${item.name}`);
+            let blob = item._blob || null;
+            if (!blob) {
+              const fetched = await fetchFileBlob(item.url);
+              if (fetched) {
+                const mimeType =
+                  item.type === "video"
+                    ? "video/mp4"
+                    : item.type === "gif"
+                      ? "image/gif"
+                      : "image/jpeg";
+                blob =
+                  fetched.type && fetched.type !== "application/octet-stream"
+                    ? fetched
+                    : new Blob([fetched], { type: mimeType });
+                item._blob = blob;
+              }
             }
-            await new Promise((r) => setTimeout(r, 600));
+
+            if (blob) {
+              downloadBlob(blob, filename);
+            } else {
+              downloadDirectFallback(item.url, filename);
+            }
+
+            if (i < total - 1) {
+              await new Promise((r) => setTimeout(r, 450));
+            }
           }
+
+          btn.innerHTML = `
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>Selesai!</span>
+          `;
+
+          setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            isDownloadingAll = false;
+          }, 3000);
         } catch (err) {
           console.error("Download all error:", err);
           alert(
             "Terjadi kendala saat mengunduh semua foto. Silakan unduh per foto.",
           );
-        } finally {
           btn.innerHTML = originalHtml;
           isDownloadingAll = false;
         }
