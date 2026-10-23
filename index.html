@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sobat Gallery - Digital Album</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+      }
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-[#04181B] text-[#E2E8F0] min-h-screen flex flex-col antialiased selection:bg-[#38BDF8] selection:text-black"
+  >
+    <header
+      class="w-full px-6 py-4 flex items-center justify-between bg-[#08242A]/80 backdrop-blur-md border-b border-[#1C4B52] sticky top-0 z-40"
+    >
+      <div class="flex items-center space-x-3">
+        <button
+          id="btn-back"
+          onclick="showEventView()"
+          class="hidden hover:bg-[#1C4B52] transition p-2 rounded-xl text-[#38BDF8]"
+          title="Kembali ke Galeri Acara"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
+        <div>
+          <span
+            class="text-[10px] tracking-widest font-semibold uppercase text-[#38BDF8] block"
+            >PHOTOBOOTH GALLERY</span
+          >
+          <h1
+            id="header-title"
+            class="text-lg md:text-xl font-bold text-white tracking-wide"
+          >
+            Sobat Gallery
+          </h1>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 text-neutral-300">
+        <button
+          id="btn-download-all"
+          onclick="downloadCurrentSessionAll()"
+          title="Download Semua Foto"
+          class="hidden flex items-center space-x-1.5 bg-[#1C4B52] hover:bg-[#28636C] text-[#38BDF8] px-3.5 py-1.5 rounded-full text-xs font-medium transition active:scale-95"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          <span class="hidden sm:inline">Unduh Semua</span>
+        </button>
+
+        <button
+          onclick="shareLink()"
+          title="Bagikan Tautan"
+          class="p-2 rounded-xl bg-[#08242A] border border-[#1C4B52] hover:border-[#38BDF8] text-[#38BDF8] transition active:scale-95"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+            />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="event-view" class="flex-1 max-w-5xl mx-auto w-full px-6 py-8">
+      <div class="mb-6">
+        <h2 class="text-xl font-bold text-white">Semua Sesi Foto</h2>
+        <p class="text-xs text-neutral-400">
+          Pilih sesi untuk melihat dan mengunduh foto Anda
+        </p>
+      </div>
+      <div
+        id="sessions-grid"
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6 justify-center"
+      ></div>
+    </main>
+
+    <main
+      id="session-slider-view"
+      class="hidden flex-1 flex flex-col items-center justify-between px-4 pb-8 max-w-4xl mx-auto w-full"
+    >
+      <div
+        class="relative w-full flex-1 flex items-center justify-center min-h-[50vh] max-h-[68vh] my-auto py-2"
+      >
+        <button
+          onclick="prevSlide()"
+          class="absolute left-2 md:-left-6 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#08242A]/80 border border-[#1C4B52] text-white hover:border-[#38BDF8] hover:text-[#38BDF8] transition z-20 shadow-lg active:scale-90"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.2"
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
+
+        <div
+          class="relative max-h-full max-w-full flex items-center justify-center p-2 rounded-2xl bg-[#08242A]/50 border border-[#1C4B52]/60 shadow-2xl"
+        >
+          <img
+            id="main-slide-img"
+            src=""
+            alt="Foto Sesi"
+            class="max-h-[58vh] max-w-full object-contain rounded-xl transition-all duration-300"
+          />
+          <video
+            id="main-slide-video"
+            autoplay
+            loop
+            muted
+            playsinline
+            class="hidden max-h-[58vh] max-w-full object-contain rounded-xl transition-all duration-300"
+          ></video>
+
+          <span
+            id="slide-counter"
+            class="absolute top-4 right-4 bg-black/75 backdrop-blur-sm border border-[#1C4B52] text-[#38BDF8] text-xs px-3 py-1 rounded-full font-semibold"
+          >
+            1/4
+          </span>
+        </div>
+
+        <button
+          onclick="nextSlide()"
+          class="absolute right-2 md:-right-6 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-[#08242A]/80 border border-[#1C4B52] text-white hover:border-[#38BDF8] hover:text-[#38BDF8] transition z-20 shadow-lg active:scale-90"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.2"
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div class="w-full flex flex-col items-center mt-2">
+        <div
+          id="thumbnails-container"
+          class="flex items-center space-x-3 overflow-x-auto max-w-full py-2 px-4 hide-scrollbar"
+        ></div>
+
+        <button
+          onclick="downloadCurrentActivePhoto()"
+          class="mt-4 flex items-center space-x-2 bg-[#A3E635] hover:bg-[#86EFAC] text-neutral-950 text-xs font-bold px-7 py-3 rounded-full shadow-lg shadow-[#A3E635]/10 active:scale-95 transition tracking-wider uppercase"
+        >
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+            />
+          </svg>
+          <span>SAVE THIS FILE</span>
+        </button>
+      </div>
+    </main>
+
+    <script>
+      let activeSession = null;
+      let activeSlideIndex = 0;
+      let isDirectSessionAccess = false;
+
+      // Helper untuk membersihkan escape character \u0026 menjadi simbol & asli
+      function cleanUrl(url) {
+        if (!url) return "";
+        return url.replace(/\\u0026/g, "&");
+      }
+
+      // Helper untuk mengekstrak nama Event bersih tanpa nomor urut sesi (contoh: "SHOP-1" -> "SHOP")
+      function resolveEventTitle(sessionId, manifest = null, eventParam = null) {
+        if (manifest && manifest.eventName && manifest.eventName.trim()) {
+          return manifest.eventName.trim();
+        }
+        if (eventParam && eventParam.trim()) {
+          return eventParam.trim();
+        }
+        const rawSession =
+          (manifest && manifest.sessionId) || sessionId || "";
+        if (rawSession) {
+          // Hapus akhiran nomor urut sesi seperti "-1", "-2", dst.
+          const stripped = rawSession.replace(/-\d+$/, "").trim();
+          if (stripped && !/^SG-\d+/i.test(rawSession)) {
+            return stripped;
+          }
+        }
+        if (manifest && manifest.eventSlug && manifest.eventSlug !== "default-event") {
+          return manifest.eventSlug.replace(/-/g, " ").toUpperCase();
+        }
+        return "Sobat Gallery";
+      }
+
+      // Cukup gunakan SATU event listener DOMContentLoaded
+      window.addEventListener("DOMContentLoaded", async () => {
+        const params = new URLSearchParams(window.location.search);
+        const sessionParam = params.get("session") || params.get("s");
+        const manifestId = params.get("m"); // ID file manifest langsung dari QR
+        const eventParam = params.get("event") || params.get("e");
+
+        if (manifestId || sessionParam) {
+          isDirectSessionAccess = true;
+          await loadSessionFromDrive(sessionParam, manifestId, eventParam);
+        } else {
+          document.getElementById("header-title").innerText =
+            resolveEventTitle(null, null, eventParam);
+          document.getElementById("sessions-grid").innerHTML = `
+            <div class="col-span-full py-16 text-center text-neutral-400">
+              <p class="text-sm">Silakan scan QR Code sesi foto Anda pada layar Kiosk.</p>
+            </div>
+          `;
+        }
+      });
+
+      async function fetchManifestData(sessionId, manifestId) {
+        // Jalur Utama: Ambil via Vercel Serverless Proxy (Bebas CORS & Aman)
+        if (manifestId) {
+          try {
+            const res = await fetch(`/api/manifest?id=${encodeURIComponent(manifestId)}`);
+            if (res.ok) {
+              return await res.json();
+            }
+          } catch (e) {
+            console.error("Proxy manifest fetch error:", e);
+          }
+        }
+
+        // Jalur Cadangan: Pencarian sesi via Serverless Search Proxy (Aman tanpa API Key di Frontend)
+        if (sessionId) {
+          try {
+            const res = await fetch(`/api/search?session=${encodeURIComponent(sessionId)}`);
+            if (res.ok) {
+              return await res.json();
+            }
+          } catch (e) {
+            console.warn("Serverless session search error:", e);
+          }
+        }
+
+        return null;
+      }
+
+      async function loadSessionFromDrive(sessionId, manifestId = null, eventParam = null) {
+        document.getElementById("header-title").innerText =
+          resolveEventTitle(sessionId, null, eventParam);
+
+        const grid = document.getElementById("sessions-grid");
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-[#38BDF8] animate-pulse">
+            <p class="text-sm font-medium">Memuat galeri foto Anda...</p>
+          </div>
+        `;
+
+        try {
+          let manifest = null;
+
+          // Auto-retry hingga 5 percobaan (interval 1.5 detik) jika sesi masih dalam tahap akhir unggahan
+          for (let attempt = 0; attempt < 5; attempt++) {
+            manifest = await fetchManifestData(sessionId, manifestId);
+            if (manifest) break;
+            if (attempt < 4) {
+              await new Promise((r) => setTimeout(r, 1500));
+            }
+          }
+
+          if (!manifest) {
+            showEmptyState(
+              "Sesi foto sedang diunggah atau tidak ditemukan. Silakan klik Muat Ulang.",
+            );
+            return;
+          }
+
+          // Perbarui judul header agar menampilkan nama event saja (tanpa nomor sesi)
+          document.getElementById("header-title").innerText =
+            resolveEventTitle(sessionId, manifest, eventParam);
+
+          // Susun daftar slide galeri dengan pembersihan URL (dukungan multi-strip dan multi-gif)
+          const items = [];
+
+          // 1. Dukungan multi-strip & fallback single strip
+          if (Array.isArray(manifest.strips) && manifest.strips.length > 0) {
+            manifest.strips.forEach((photoUrl, idx) => {
+              if (photoUrl) {
+                items.push({
+                  type: "strip",
+                  url: cleanUrl(photoUrl),
+                  name: manifest.strips.length > 1 ? `PhotoStrip_${idx + 1}.jpg` : "PhotoStrip.jpg",
+                });
+              }
+            });
+          } else if (manifest.strip) {
+            items.push({
+              type: "strip",
+              url: cleanUrl(manifest.strip),
+              name: "PhotoStrip.jpg",
+            });
+          }
+
+          // 2. Dukungan multi-video MP4 / GIF & fallback single animasi
+          // JANGAN gunakan strip template sebagai fallback thumbnail untuk MP4 agar tidak pernah merender strip template di kotak kecil GIF!
+          const firstRawPhotoThumb =
+            Array.isArray(manifest.rawPhotos) && manifest.rawPhotos[0]
+              ? cleanUrl(manifest.rawPhotos[0])
+              : "";
+
+          function buildAnimItem(animUrl, idx, totalCount) {
+            const cleaned = cleanUrl(animUrl);
+            const idMatch =
+              cleaned.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+              cleaned.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            const fileId = idMatch && idMatch[1] ? idMatch[1] : "";
+            const isMp4 =
+              cleaned.toLowerCase().includes(".mp4") ||
+              cleaned.toLowerCase().includes("export=download");
+            const ext = isMp4 ? "mp4" : "gif";
+            const baseLabel = isMp4 ? "Video" : "Animation";
+            return {
+              type: isMp4 ? "video" : "gif",
+              fileId: fileId,
+              url: cleaned,
+              videoUrl:
+                isMp4 && fileId
+                  ? `/api/download?id=${encodeURIComponent(fileId)}&inline=1`
+                  : cleaned,
+              thumbUrl: fileId
+                ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`
+                : firstRawPhotoThumb || (!isMp4 ? cleaned : ""),
+              fallbackThumbUrl: firstRawPhotoThumb,
+              name:
+                totalCount > 1
+                  ? `${baseLabel}_${idx + 1}.${ext}`
+                  : `${baseLabel}.${ext}`,
+            };
+          }
+
+          if (Array.isArray(manifest.gifs) && manifest.gifs.length > 0) {
+            manifest.gifs.forEach((gifUrl, idx) => {
+              if (gifUrl) {
+                items.push(buildAnimItem(gifUrl, idx, manifest.gifs.length));
+              }
+            });
+          } else if (manifest.gif) {
+            items.push(buildAnimItem(manifest.gif, 0, 1));
+          }
+
+          // 3. Foto-foto pose asli (raw photos)
+          if (Array.isArray(manifest.rawPhotos)) {
+            manifest.rawPhotos.forEach((photoUrl, idx) => {
+              if (photoUrl) {
+                items.push({
+                  type: "raw",
+                  url: cleanUrl(photoUrl),
+                  name: `Pose_${idx + 1}.jpg`,
+                });
+              }
+            });
+          }
+
+          if (items.length === 0) {
+            showEmptyState("Belum ada foto yang tersedia pada sesi ini.");
+            return;
+          }
+
+          openSession({
+            id: sessionId || manifest.sessionId || "Galeri",
+            items: items,
+          });
+        } catch (err) {
+          console.error("Fetch Exception:", err);
+          showEmptyState("Terjadi kendala jaringan saat memuat album.");
+        }
+      }
+
+      function showEmptyState(message) {
+        const grid = document.getElementById("sessions-grid");
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-neutral-400">
+            <p class="text-sm">${message}</p>
+            <button onclick="window.location.reload()" class="mt-4 px-4 py-2 text-xs font-semibold text-[#04181B] bg-[#38BDF8] rounded-full hover:opacity-90">Muat Ulang</button>
+          </div>
+        `;
+      }
+
+      function ensureVideoBlobLoaded(item) {
+        if (!item) return Promise.resolve(null);
+        if (item.blobUrl) return Promise.resolve(item.blobUrl);
+        if (item._blobPromise) return item._blobPromise;
+
+        item._blobPromise = (async () => {
+          try {
+            const rawBlob = await fetchFileBlob(item.url);
+            if (rawBlob && rawBlob.size > 0) {
+              const isVideo =
+                item.type === "video" ||
+                (rawBlob.type && rawBlob.type.includes("video"));
+              const typedBlob =
+                rawBlob.type && (rawBlob.type.includes("video") || rawBlob.type.includes("image"))
+                  ? rawBlob
+                  : new Blob([rawBlob], {
+                      type: isVideo
+                        ? "video/mp4"
+                        : item.type === "gif"
+                          ? "image/gif"
+                          : "image/jpeg",
+                    });
+              item._blob = typedBlob;
+              item.blobUrl = URL.createObjectURL(typedBlob);
+
+              // Jika video ini memiliki elemen thumbnail <video>, perbarui src-nya agar frame asli langsung muncul
+              if (item._thumbVideoEl && item._thumbVideoEl.src !== item.blobUrl) {
+                item._thumbVideoEl.src = item.blobUrl;
+              }
+              return item.blobUrl;
+            }
+          } catch (e) {
+            console.warn("Video preload failed:", e);
+          }
+          return null;
+        })();
+
+        return item._blobPromise;
+      }
+
+      function preloadSessionVideos(session) {
+        if (!session || !Array.isArray(session.items)) return;
+        session.items.forEach((item) => {
+          if (item.type === "video" || item.type === "gif") {
+            ensureVideoBlobLoaded(item);
+          }
+        });
+      }
+
+      function openSession(session) {
+        activeSession = session;
+        activeSlideIndex = 0;
+
+        document.getElementById("event-view").classList.add("hidden");
+        document
+          .getElementById("session-slider-view")
+          .classList.remove("hidden");
+        document.getElementById("btn-download-all").classList.remove("hidden");
+
+        const backBtn = document.getElementById("btn-back");
+        if (isDirectSessionAccess) {
+          backBtn.classList.add("hidden");
+        } else {
+          backBtn.classList.remove("hidden");
+        }
+
+        renderThumbnails();
+        updateSlideDisplay();
+
+        // Preload seluruh MP4 / GIF di latar belakang begitu halaman dibuka agar saat diklik langsung bergerak instan!
+        preloadSessionVideos(session);
+      }
+
+      function showEventView() {
+        if (isDirectSessionAccess) return;
+        const mainVideo = document.getElementById("main-slide-video");
+        if (mainVideo) {
+          try { mainVideo.pause(); } catch (e) {}
+        }
+        document.getElementById("session-slider-view").classList.add("hidden");
+        document.getElementById("event-view").classList.remove("hidden");
+        document.getElementById("btn-back").classList.add("hidden");
+        document.getElementById("btn-download-all").classList.add("hidden");
+        window.history.pushState({}, "", window.location.pathname);
+      }
+
+      function getThumbWrapperClass(isActive) {
+        return `relative w-14 h-14 md:w-16 md:h-16 flex-shrink-0 rounded-xl overflow-hidden cursor-pointer border-2 bg-[#08242A] transition-all duration-200 ${
+          isActive
+            ? "border-[#38BDF8] scale-105 shadow-md shadow-[#38BDF8]/20"
+            : "border-transparent opacity-60 hover:opacity-95"
+        }`;
+      }
+
+      function renderThumbnails() {
+        const container = document.getElementById("thumbnails-container");
+        container.innerHTML = "";
+
+        activeSession.items.forEach((item, idx) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = getThumbWrapperClass(idx === activeSlideIndex);
+          wrapper.onclick = () => {
+            activeSlideIndex = idx;
+            updateSlideDisplay();
+          };
+
+          if (item.type === "video") {
+            const vidThumb = document.createElement("video");
+            vidThumb.muted = true;
+            vidThumb.playsInline = true;
+            vidThumb.setAttribute("muted", "");
+            vidThumb.setAttribute("playsinline", "");
+            vidThumb.preload = "metadata";
+            if (item.fallbackThumbUrl) {
+              vidThumb.poster = item.fallbackThumbUrl;
+            }
+            vidThumb.src = item.blobUrl || item.videoUrl || item.url;
+            vidThumb.className = "w-full h-full object-cover pointer-events-none";
+            vidThumb.onloadeddata = () => {
+              try {
+                if (vidThumb.currentTime === 0) {
+                  vidThumb.currentTime = 0.05;
+                }
+              } catch (e) {}
+            };
+            item._thumbVideoEl = vidThumb;
+            wrapper.appendChild(vidThumb);
+          } else {
+            const thumb = document.createElement("img");
+            thumb.src = item.thumbUrl || item.url;
+            if (item.fallbackThumbUrl) {
+              thumb.onerror = () => {
+                if (thumb.src !== item.fallbackThumbUrl) {
+                  thumb.src = item.fallbackThumbUrl;
+                }
+              };
+            }
+            thumb.className = "w-full h-full object-cover pointer-events-none";
+            wrapper.appendChild(thumb);
+          }
+
+          // Tambahkan penanda ikon Play (▶) pada thumbnail video MP4 / GIF agar pelanggan dapat membedakannya dari foto biasa
+          if (item.type === "video" || item.type === "gif") {
+            const badge = document.createElement("div");
+            badge.className =
+              "absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none";
+            badge.innerHTML = `
+              <div class="w-6 h-6 rounded-full bg-black/70 border border-[#38BDF8]/90 flex items-center justify-center shadow-md">
+                <svg class="w-3.5 h-3.5 text-[#38BDF8] ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            `;
+            wrapper.appendChild(badge);
+          }
+
+          container.appendChild(wrapper);
+        });
+      }
+
+      async function updateSlideDisplay() {
+        const currentItem = activeSession.items[activeSlideIndex];
+        const mainImg = document.getElementById("main-slide-img");
+        const mainVideo = document.getElementById("main-slide-video");
+
+        document.getElementById("slide-counter").innerText =
+          `${activeSlideIndex + 1}/${activeSession.items.length}`;
+
+        const thumbs = document.getElementById("thumbnails-container").children;
+        for (let i = 0; i < thumbs.length; i++) {
+          thumbs[i].className = getThumbWrapperClass(i === activeSlideIndex);
+        }
+
+        if (currentItem.type === "video" && mainVideo) {
+          mainImg.classList.add("hidden");
+          mainVideo.classList.remove("hidden");
+          if (currentItem.fallbackThumbUrl) {
+            mainVideo.poster = currentItem.fallbackThumbUrl;
+          } else {
+            mainVideo.removeAttribute("poster");
+          }
+
+          if (currentItem.blobUrl) {
+            if (mainVideo.src !== currentItem.blobUrl) {
+              mainVideo.src = currentItem.blobUrl;
+            }
+            mainVideo.play().catch(() => {});
+          } else {
+            // Segera gunakan stream sembari menunggu preload blob selesai agar tidak kosong/lambat
+            const initialSrc = currentItem.videoUrl || currentItem.url;
+            if (mainVideo.src !== initialSrc) {
+              mainVideo.src = initialSrc;
+            }
+            mainVideo.play().catch(() => {});
+
+            const readyBlobUrl = await ensureVideoBlobLoaded(currentItem);
+            if (
+              readyBlobUrl &&
+              activeSession &&
+              activeSession.items[activeSlideIndex] === currentItem
+            ) {
+              if (mainVideo.paused || mainVideo.readyState < 2 || mainVideo.src !== readyBlobUrl) {
+                mainVideo.src = readyBlobUrl;
+                mainVideo.play().catch(() => {});
+              }
+            }
+          }
+        } else {
+          if (mainVideo) {
+            try { mainVideo.pause(); } catch (e) {}
+            mainVideo.classList.add("hidden");
+          }
+          mainImg.classList.remove("hidden");
+          mainImg.src = currentItem.blobUrl || currentItem.url;
+        }
+      }
+
+      function nextSlide() {
+        if (!activeSession) return;
+        activeSlideIndex = (activeSlideIndex + 1) % activeSession.items.length;
+        updateSlideDisplay();
+      }
+
+      function prevSlide() {
+        if (!activeSession) return;
+        activeSlideIndex =
+          (activeSlideIndex - 1 + activeSession.items.length) %
+          activeSession.items.length;
+        updateSlideDisplay();
+      }
+
+      window.addEventListener("keydown", (e) => {
+        if (
+          document
+            .getElementById("session-slider-view")
+            .classList.contains("hidden")
+        )
+          return;
+        if (e.key === "ArrowRight") nextSlide();
+        if (e.key === "ArrowLeft") prevSlide();
+      });
+
+      async function fetchFileBlob(url) {
+        let fileId = "";
+        const idMatch =
+          url.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+          url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (idMatch && idMatch[1]) {
+          fileId = idMatch[1];
+        }
+
+        // 1. Ambil via Vercel Serverless Proxy (Aman, API key tersimpan di backend proxy)
+        try {
+          const proxyUrl = fileId
+            ? `/api/download?id=${encodeURIComponent(fileId)}`
+            : `/api/download?url=${encodeURIComponent(url)}`;
+          const proxyRes = await fetch(proxyUrl);
+          if (proxyRes.ok) return await proxyRes.blob();
+        } catch (e) {
+          console.warn("Proxy download fetch failed:", e);
+        }
+
+        // 2. Fallback direct fetch URL jika proxy gagal
+        try {
+          const directRes = await fetch(url);
+          if (directRes.ok) return await directRes.blob();
+        } catch (e) {
+          console.warn("Direct fetch failed:", e);
+        }
+
+        return null;
+      }
+
+      function downloadBlob(blob, filename) {
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = blobUrl;
+        a.download = filename || "photo.jpg";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+      }
+
+      function downloadDirectFallback(url, filename) {
+        let fileId = "";
+        const idMatch =
+          url.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+          url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (idMatch && idMatch[1]) fileId = idMatch[1];
+        let finalUrl = fileId
+          ? `https://drive.google.com/uc?export=download&id=${fileId}`
+          : url;
+        const a = document.createElement("a");
+        a.href = finalUrl;
+        a.setAttribute("download", filename || "photo.jpg");
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      async function downloadCurrentActivePhoto() {
+        if (
+          !activeSession ||
+          !activeSession.items ||
+          activeSession.items.length === 0
+        )
+          return;
+        const item = activeSession.items[activeSlideIndex];
+        const filename = `${activeSession.id}_${item.name}`;
+
+        try {
+          if (item._blob) {
+            downloadBlob(item._blob, filename);
+            return;
+          }
+          const blob = await fetchFileBlob(item.url);
+          if (blob) {
+            const mimeType =
+              item.type === "video"
+                ? "video/mp4"
+                : item.type === "gif"
+                  ? "image/gif"
+                  : "image/jpeg";
+            const typedBlob =
+              blob.type && blob.type !== "application/octet-stream"
+                ? blob
+                : new Blob([blob], { type: mimeType });
+            item._blob = typedBlob;
+            downloadBlob(typedBlob, filename);
+            return;
+          }
+        } catch (e) {
+          console.error("Blob download error:", e);
+        }
+
+        downloadDirectFallback(item.url, filename);
+      }
+
+      function buildBrowserDownloadUrl(item, filename) {
+        let fileId = item.fileId || "";
+        if (!fileId && item.url) {
+          const idMatch =
+            item.url.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
+            item.url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          if (idMatch && idMatch[1]) {
+            fileId = idMatch[1];
+          }
+        }
+
+        if (fileId) {
+          return `/api/download?id=${encodeURIComponent(fileId)}&filename=${encodeURIComponent(filename)}`;
+        }
+        return `/api/download?url=${encodeURIComponent(item.url)}&filename=${encodeURIComponent(filename)}`;
+      }
+
+      function downloadCurrentSessionAll() {
+        if (
+          !activeSession ||
+          !activeSession.items ||
+          activeSession.items.length === 0
+        )
+          return;
+
+        // Serahkan seluruh proses unduhan langsung ke browser pengguna secara bersamaan (hanya 1x pop-up izin awal di browser, tanpa antrean/loading di website)
+        const total = activeSession.items.length;
+        for (let i = 0; i < total; i++) {
+          const item = activeSession.items[i];
+          const filename = `${activeSession.id}_${item.name}`;
+          const downloadUrl = buildBrowserDownloadUrl(item, filename);
+
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.setAttribute("download", filename);
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      }
+
+      function shareLink() {
+        if (navigator.share) {
+          navigator.share({ title: document.title, url: window.location.href });
+        } else {
+          navigator.clipboard.writeText(window.location.href);
+          alert("Tautan sesi tersalin!");
+        }
+      }
+    </script>
+  </body>
+</html>
