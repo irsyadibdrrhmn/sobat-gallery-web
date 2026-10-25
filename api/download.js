@@ -63,3 +63,4 @@ export default async function handler(req, res) {
   // HTTP 302 Redirect langsung ke server Google Drive CDN
   return res.redirect(302, redirectTarget);
 }
+
