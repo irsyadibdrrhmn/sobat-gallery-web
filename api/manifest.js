@@ -33,9 +33,17 @@ export default async function handler(req, res) {
     }
 
     const data = await driveRes.json();
+
+    // Cache manifest di Edge Cloudflare selama 1 hari (manifest sesi foto bersifat immutable)
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
+    );
+
     return res.status(200).json(data);
   } catch (err) {
     console.error("Google Drive manifest request error:", err);
     return res.status(502).json({ error: "Gagal menghubungi Google Drive" });
   }
 }
+

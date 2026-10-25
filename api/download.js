@@ -18,6 +18,7 @@ export default async function handler(req, res) {
       decodedUrl = url;
     }
   }
+
   if (!fileId && decodedUrl) {
     const idMatch =
       decodedUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/) ||
@@ -28,89 +29,30 @@ export default async function handler(req, res) {
   }
 
   const safeFilename = (filename || "photo.jpg").replace(/["\r\n]/g, "_");
-  const apiKey = process.env.GDRIVE_API_KEY;
-  if (!apiKey) {
-    console.error("GDRIVE_API_KEY is not configured");
-    return res.status(503).send("Layanan galeri belum dikonfigurasi");
-  }
-
   const lowerName = safeFilename.toLowerCase();
-  const fallbackContentType = lowerName.endsWith(".mp4")
-    ? "video/mp4"
-    : lowerName.endsWith(".gif")
-      ? "image/gif"
-      : lowerName.endsWith(".png")
-        ? "image/png"
-        : "image/jpeg";
+  const isVideo = lowerName.endsWith(".mp4");
 
-  try {
-    let response = null;
+  let redirectTarget = "";
 
-    // 1. Ambil resolusi penuh via Google Drive API v3 (alt=media) menggunakan API key aman di server
-    if (fileId) {
-      try {
-        const driveUrl = new URL(
-          `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
-        );
-        driveUrl.searchParams.set("alt", "media");
-        driveUrl.searchParams.set("key", apiKey);
-
-        const apiRes = await fetch(driveUrl);
-        if (apiRes.ok) {
-          response = apiRes;
-        } else {
-          console.error("Google Drive API response not ok:", apiRes.status);
-        }
-      } catch (err) {
-        console.error("Google Drive API fetch error:", err);
-      }
-    }
-
-    // 2. Fallback ke decodedUrl langsung jika fileId gagal atau tidak ada
-    if (!response && decodedUrl) {
-      try {
-        const directRes = await fetch(decodedUrl);
-        if (directRes.ok) {
-          response = directRes;
-        }
-      } catch (err) {
-        console.error("Direct fetch fallback error:", err);
-      }
-    }
-
-    if (!response || !response.ok) {
-      return res.status(response ? response.status : 404).send("File tidak dapat diakses di Google Drive");
-    }
-
-    let contentType = response.headers.get("content-type") || "";
-    if (
-      !contentType ||
-      contentType === "application/octet-stream" ||
-      contentType.includes("text/html")
-    ) {
-      contentType = fallbackContentType;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-
-    const isInline = inline === "1" || inline === "true";
-    const dispositionType = isInline ? "inline" : "attachment";
-
-    res.setHeader("Content-Type", contentType);
-    res.setHeader(
-      "Content-Disposition",
-      `${dispositionType}; filename="${safeFilename}"`,
-    );
-    res.setHeader("Accept-Ranges", "bytes");
-    res.setHeader(
-      "Cache-Control",
-      "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
-    );
-    res.setHeader("Access-Control-Allow-Origin", "*");
-
-    return res.send(Buffer.from(arrayBuffer));
-  } catch (err) {
-    console.error("Download handler error:", err);
-    return res.status(502).send("Gagal menghubungi Google Drive");
+  if (fileId) {
+    // Untuk video MP4 gunakan uc?export=download, untuk foto gunakan direct CDN lh3.googleusercontent.com/d/
+    redirectTarget = isVideo
+      ? `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`
+      : `https://lh3.googleusercontent.com/d/${encodeURIComponent(fileId)}`;
+  } else if (decodedUrl) {
+    redirectTarget = decodedUrl;
+  } else {
+    return res.status(404).send("File tidak ditemukan");
   }
+
+  // Set caching headers agar Cloudflare Edge Cache menyimpan redirect 302 ini
+  res.setHeader(
+    "Cache-Control",
+    "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800",
+  );
+  res.setHeader("Access-Control-Allow-Origin", "*");
+
+  // HTTP 302 Redirect langsung ke server Google Drive CDN tanpa membebani bandwidth backend
+  return res.redirect(302, redirectTarget);
 }
+

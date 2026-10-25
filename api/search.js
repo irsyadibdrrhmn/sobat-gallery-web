@@ -73,9 +73,16 @@ export default async function handler(req, res) {
     }
     const manifest = await contentRes.json();
 
+    // Cache di Edge Cloudflare selama 1 jam agar pencarian berulang pada sesi yang sama tidak memakan kuota
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=60, s-maxage=3600, stale-while-revalidate=86400",
+    );
+
     return res.status(200).json(manifest);
   } catch (err) {
     console.error("Google Drive session search error:", err);
     return res.status(502).json({ error: "Gagal menghubungi Google Drive" });
   }
 }
+
