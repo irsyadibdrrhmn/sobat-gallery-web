@@ -8,6 +8,7 @@ export default {
       const urlParam = url.searchParams.get("url");
       const idParam = url.searchParams.get("id");
       const filename = url.searchParams.get("filename") || "photo.jpg";
+      const typeParam = (url.searchParams.get("type") || "").toLowerCase();
 
       if (!urlParam && !idParam) {
         return new Response("URL or ID parameter is required", { status: 400 });
@@ -34,7 +35,14 @@ export default {
 
       const safeFilename = filename.replace(/["\r\n]/g, "_");
       const lowerName = safeFilename.toLowerCase();
-      const isVideo = lowerName.endsWith(".mp4");
+      const lowerUrl = decodedUrl.toLowerCase();
+
+      const isVideo =
+        typeParam === "video" ||
+        typeParam === "mp4" ||
+        lowerName.endsWith(".mp4") ||
+        lowerUrl.includes(".mp4") ||
+        lowerUrl.includes("ext=.mp4");
 
       let redirectTarget = "";
       if (fileId) {

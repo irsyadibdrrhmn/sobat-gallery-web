@@ -5,6 +5,7 @@ export async function onRequestGet(context) {
   const urlParam = urlObj.searchParams.get("url");
   const idParam = urlObj.searchParams.get("id");
   const filename = urlObj.searchParams.get("filename") || "photo.jpg";
+  const typeParam = (urlObj.searchParams.get("type") || "").toLowerCase();
 
   if (!urlParam && !idParam) {
     return new Response("URL or ID parameter is required", { status: 400 });
@@ -31,7 +32,14 @@ export async function onRequestGet(context) {
 
   const safeFilename = filename.replace(/["\r\n]/g, "_");
   const lowerName = safeFilename.toLowerCase();
-  const isVideo = lowerName.endsWith(".mp4");
+  const lowerUrl = decodedUrl.toLowerCase();
+
+  const isVideo =
+    typeParam === "video" ||
+    typeParam === "mp4" ||
+    lowerName.endsWith(".mp4") ||
+    lowerUrl.includes(".mp4") ||
+    lowerUrl.includes("ext=.mp4");
 
   let redirectTarget = "";
   if (fileId) {
@@ -53,4 +61,3 @@ export async function onRequestGet(context) {
     },
   });
 }
-

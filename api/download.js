@@ -3,7 +3,7 @@ export default async function handler(req, res) {
     return res.status(405).send("Method not allowed");
   }
 
-  const { url, id, filename, inline } = req.query;
+  const { url, id, filename, inline, type } = req.query;
 
   if (!url && !id) {
     return res.status(400).send("URL or ID parameter is required");
@@ -30,7 +30,15 @@ export default async function handler(req, res) {
 
   const safeFilename = (filename || "photo.jpg").replace(/["\r\n]/g, "_");
   const lowerName = safeFilename.toLowerCase();
-  const isVideo = lowerName.endsWith(".mp4");
+  const lowerUrl = decodedUrl.toLowerCase();
+  const typeParam = (type || "").toLowerCase();
+
+  const isVideo =
+    typeParam === "video" ||
+    typeParam === "mp4" ||
+    lowerName.endsWith(".mp4") ||
+    lowerUrl.includes(".mp4") ||
+    lowerUrl.includes("ext=.mp4");
 
   let redirectTarget = "";
 
@@ -52,7 +60,6 @@ export default async function handler(req, res) {
   );
   res.setHeader("Access-Control-Allow-Origin", "*");
 
-  // HTTP 302 Redirect langsung ke server Google Drive CDN tanpa membebani bandwidth backend
+  // HTTP 302 Redirect langsung ke server Google Drive CDN
   return res.redirect(302, redirectTarget);
 }
-
